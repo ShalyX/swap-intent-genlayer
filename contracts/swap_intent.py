@@ -12,10 +12,10 @@ swap in its own deterministic call path.
 
 import hashlib
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from genlayer import *
-from dataclasses import dataclass
 
 
 ERROR_EXPECTED = "[EXPECTED]"
