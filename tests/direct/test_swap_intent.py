@@ -83,6 +83,30 @@ def mock_quote(direct_vm, body=None, status=200):
     )
 
 
+def test_address_normalizer_accepts_studio_decimal_u160_values(
+    direct_vm, direct_deploy, direct_alice
+):
+    contract = deploy(direct_deploy)
+    direct_vm.sender = direct_alice
+    contract.create_intent(
+        "swap-decimal-addresses",
+        "ETH/USDC",
+        int(SELL_ASSET[2:], 16),
+        str(int(BUY_ASSET[2:], 16)),
+        100,
+        2400,
+        100,
+        ROUTER,
+        RECIPIENT,
+        EXECUTOR,
+        int(time.time()) + 3600,
+        "Use the approved router and do not exceed the configured fee or slippage bounds.",
+    )
+    intent = contract.get_intent("swap-decimal-addresses")
+    assert intent["sell_asset"] == SELL_ASSET
+    assert intent["buy_asset"] == BUY_ASSET
+
+
 def test_intent_binds_protocol_bounds_and_quote_version(
     direct_vm, direct_deploy, direct_alice
 ):

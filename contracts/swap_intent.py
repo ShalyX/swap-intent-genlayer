@@ -80,10 +80,31 @@ def _text(value, field_name: str, maximum: int) -> str:
 
 
 def _address_text(value) -> str:
+    """Normalize SDK, ABI-decoded, and direct-test address values."""
     try:
-        return value.as_hex.lower()
+        raw_value = value.as_hex
     except AttributeError:
-        return str(value).strip().lower()
+        raw_value = value
+
+    if isinstance(raw_value, bytes):
+        return "0x" + raw_value.hex()
+
+    if isinstance(raw_value, int):
+        return f"0x{raw_value:040x}"
+
+    normalized = str(raw_value).strip().lower()
+    if normalized.startswith("0x"):
+        return normalized
+
+    # Studio's ABI form can expose Address parameters as their decimal u160
+    # value. Convert that representation back to the canonical 20-byte hex
+    # form before applying the strict address checks below.
+    if normalized.isdigit():
+        try:
+            return f"0x{int(normalized):040x}"
+        except ValueError:
+            pass
+    return normalized
 
 
 def _address(value, field_name: str) -> str:
