@@ -12,7 +12,7 @@ swap in its own deterministic call path.
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass as py_dataclass
 from datetime import datetime, timezone
 
 from genlayer import *
@@ -35,7 +35,7 @@ ZERO_ADDRESS = "0x" + "0" * 40
 
 
 @allow_storage
-@dataclass
+@py_dataclass
 class Intent:
     intent_id: str
     owner: Address
