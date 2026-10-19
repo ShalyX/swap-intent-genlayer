@@ -83,6 +83,19 @@ def mock_quote(direct_vm, body=None, status=200):
     )
 
 
+def approve_intent(contract, direct_vm, direct_alice, direct_bob):
+    create_intent(contract, direct_vm, direct_alice)
+    submit_quote(contract, direct_vm, direct_bob)
+    mock_quote(direct_vm)
+    direct_vm.sender = direct_alice
+    contract.evaluate_intent("swap-1")
+    return contract.get_intent("swap-1")
+
+
+def warp_past(direct_vm, timestamp):
+    direct_vm.warp(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp)))
+
+
 def test_address_normalizer_accepts_studio_decimal_u160_values(
     direct_vm, direct_deploy, direct_alice
 ):
@@ -151,6 +164,50 @@ def test_consensus_approved_quote_issues_one_use_executor_permit(
     assert contract.get_intent("swap-1")["status"] == "settled"
 
     with direct_vm.expect_revert("Intent has no active permit"):
+        contract.consume_permit("swap-1", ROUTE_HASH)
+
+
+def test_quote_expiry_invalidates_permit_before_intent_expiry(
+    direct_vm, direct_deploy, direct_alice, direct_bob
+):
+    contract = deploy(direct_deploy)
+    intent = approve_intent(contract, direct_vm, direct_alice, direct_bob)
+    assert intent["quote_expires_at"] < intent["valid_until"]
+
+    direct_vm.sender = bytes.fromhex(EXECUTOR[2:])
+    assert contract.is_permit_valid("swap-1", ROUTE_HASH) is True
+
+    warp_past(direct_vm, intent["quote_expires_at"] + 1)
+    assert contract.is_permit_valid("swap-1", ROUTE_HASH) is False
+
+
+def test_consume_rejects_quote_expired_while_intent_remains_live(
+    direct_vm, direct_deploy, direct_alice, direct_bob
+):
+    contract = deploy(direct_deploy)
+    intent = approve_intent(contract, direct_vm, direct_alice, direct_bob)
+    warp_past(direct_vm, intent["quote_expires_at"] + 1)
+
+    direct_vm.sender = bytes.fromhex(EXECUTOR[2:])
+    with direct_vm.expect_revert("Quote has expired"):
+        contract.consume_permit("swap-1", ROUTE_HASH)
+
+    after = contract.get_intent("swap-1")
+    assert after["status"] == "approved"
+    assert after["valid_until"] > intent["quote_expires_at"]
+    assert after["consumed"] is False
+
+
+def test_intent_expiry_still_invalidates_approved_permit(
+    direct_vm, direct_deploy, direct_alice, direct_bob
+):
+    contract = deploy(direct_deploy)
+    intent = approve_intent(contract, direct_vm, direct_alice, direct_bob)
+    warp_past(direct_vm, intent["valid_until"] + 1)
+
+    direct_vm.sender = bytes.fromhex(EXECUTOR[2:])
+    assert contract.is_permit_valid("swap-1", ROUTE_HASH) is False
+    with direct_vm.expect_revert("Permit has expired"):
         contract.consume_permit("swap-1", ROUTE_HASH)
 
 

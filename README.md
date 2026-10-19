@@ -43,6 +43,11 @@ a firm quote that satisfies every bound.
 6. The designated executor calls `consume_permit` with that route hash.
 7. The executor performs the actual swap only after the permit is consumed.
 
+The permit expires at the earlier of the intent's `valid_until` and the
+approved quote's `expires_at`. Both `is_permit_valid` and `consume_permit`
+enforce both deadlines, so an expired quote cannot remain executable while
+its parent intent is still open.
+
 Owner revision updates clear the quote and invalidate any outstanding permit.
 Cancellation also invalidates an approved permit. Replays, wrong callers,
 wrong route hashes, stale quotes, source failures, slippage, fee limits, and

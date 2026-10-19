@@ -624,8 +624,11 @@ class SwapIntent(gl.Contract):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Caller is not the designated executor")
         if _route_hash(route_hash) != intent.quoted_route_hash:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Route hash does not match the approved permit")
-        if intent.valid_until <= self._now():
+        now = self._now()
+        if intent.valid_until <= now:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Permit has expired")
+        if intent.quote_expires_at <= now:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} Quote has expired")
         intent.consumed = True
         intent.status = "settled"
 
@@ -671,12 +674,14 @@ class SwapIntent(gl.Contract):
     @gl.public.view
     def is_permit_valid(self, intent_id: str, route_hash: str) -> bool:
         intent = self._get_intent(intent_id)
+        now = self._now()
         return bool(
             intent.status == "approved"
             and not intent.consumed
             and self._sender_hex() == intent.executor
             and _route_hash(route_hash) == intent.quoted_route_hash
-            and intent.valid_until > self._now()
+            and intent.valid_until > now
+            and intent.quote_expires_at > now
         )
 
     @gl.public.view
